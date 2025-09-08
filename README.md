@@ -53,7 +53,7 @@ CLI-приложение для эмулятора языка-оболочки U
 git clone git clone -b FirstStage_REPL --single-branch https://github.com/vanger2607/MIREA_CONFIGURATION.git
 
 # Переходим в папку проекта
-cd cd MIREA_CONFIGURATION
+cd MIREA_CONFIGURATION
 
 # Запускаем CLI-терминал
 python cli_terminal.py
