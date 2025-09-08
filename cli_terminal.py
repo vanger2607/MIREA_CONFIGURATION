@@ -101,7 +101,7 @@ class Command:
         return arguments, options
 
     def execute(self, argv: ArgList) -> None:
-        """Override in subclass."""
+        """Заглушка, метод обязательно переписывать в классах-наследниках"""
         raise NotImplementedError("Command.execute must be implemented")
 
 
