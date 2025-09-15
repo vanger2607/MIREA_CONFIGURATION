@@ -1,9 +1,9 @@
 import os
+import re
 import socket
 import getpass
 import shlex
 import sys
-
 from typing import Dict, List, Tuple
 
 # Алиасы:
@@ -16,10 +16,20 @@ IntOrNone = int | None
 
 
 # Исключения:
+
+
+
 class CommandError(Exception):
     """Базовое исключение для ошибок команд"""
 
     pass
+
+
+class EnvironmentVariableNotFoundError(CommandError):
+    """Переменная окружения не найдена"""
+    def __init__(self, var: str):
+        super().__init__(f"environment variable not found: {var}")
+        self.var = var
 
 
 class InvalidArgumentsError(CommandError):
@@ -55,8 +65,20 @@ def get_user_info() -> str:
 
 
 def expand_token(token: str) -> str:
-    """Сначала раскрываем ~ (expanduser), затем переменные окружения $VAR (expandvars)"""
-    return os.path.expandvars(os.path.expanduser(token))
+    """Сначала раскрываем ~ (expanduser), затем переменные окружения $VAR (expandvars) создаем паттерн для вытаскивание переменных окружения, провермяем есть ли они"""
+    expanded = os.path.expanduser(token)
+
+    # проверим, есть ли переменные окружения вида $VAR или ${VAR}
+    import re
+    pattern = re.compile(r"\$(\w+)|\$\{([^}]+)\}")
+    matches = pattern.findall(expanded)
+
+    for m in matches:
+        var = m[0] or m[1]  # либо $VAR, либо ${VAR}
+        if var not in os.environ:
+            raise EnvironmentVariableNotFoundError(var)
+
+    return os.path.expandvars(expanded)
 
 
 # Базовый класс команд
@@ -209,6 +231,65 @@ class REPL:
                 print("error:", ce)
             except Exception as e:
                 print("unexpected error:", e)
+    def run_script(self, path: str) -> None:
+        """
+        Выполнить стартап-скрипт. Выводит на экран имитацию диалога: приглашение + ввод (строка из скрипта),
+        затем вывод команды как при интерактиве. При первой ошибке сообщает об ошибке (с номером строки) и завершает процесс с кодом 1
+        """
+        if not path:
+            print("no script path provided")
+            raise FileNotFoundError(path)
+        if not os.path.exists(path):
+            print(f"script not found: {path}")
+            raise FileNotFoundError(path)
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        except Exception as e:
+            print(f"cannot read script '{path}': {e}")
+            raise
+
+        for lineno, raw in enumerate(lines, start=1):
+            line = raw.rstrip("\n")
+            # пропускаем пустые строки
+            if not line.strip():
+                continue
+            # строки, начинающиеся с '#' считаем комментарием и тоже пропускаем
+            if line.lstrip().startswith("#"):
+                continue
+
+            prompt = get_user_info()
+            print(prompt + line)
+
+            try:
+                try:
+                    tokens = shlex.split(line, posix=True)
+                except Exception as e:
+                    print(f"error in script {path} at line {lineno}: parse error: {e}")
+                    sys.exit(1)
+
+                expanded = [expand_token(t) for t in tokens]
+                if not expanded:
+                    continue
+                command_name, *args = expanded
+                command = self.registry.get(command_name)
+                if command is None:
+                    print(f"error in script {path} at line {lineno}: command not found: {command_name}")
+                    sys.exit(1)
+
+                # execute and catch command-specific errors
+                try:
+                    command.execute(args)
+                except CommandError as ce:
+                    print(f"error in script {path} at line {lineno}: {ce}")
+                    sys.exit(1)
+                except Exception as e:
+                    print(f"unexpected error in script {path} at line {lineno}: {e}")
+                    sys.exit(1)
+
+            except SystemExit:
+                raise
 
 
 def make_default_registry() -> CommandRegistry:
