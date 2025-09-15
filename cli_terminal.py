@@ -231,65 +231,9 @@ class REPL:
                 print("error:", ce)
             except Exception as e:
                 print("unexpected error:", e)
-    def run_script(self, path: str) -> None:
-        """
-        Выполнить стартап-скрипт. Выводит на экран имитацию диалога: приглашение + ввод (строка из скрипта),
-        затем вывод команды как при интерактиве. При первой ошибке сообщает об ошибке (с номером строки) и завершает процесс с кодом 1
-        """
-        if not path:
-            print("no script path provided")
-            raise FileNotFoundError(path)
-        if not os.path.exists(path):
-            print(f"script not found: {path}")
-            raise FileNotFoundError(path)
 
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-        except Exception as e:
-            print(f"cannot read script '{path}': {e}")
-            raise
+        
 
-        for lineno, raw in enumerate(lines, start=1):
-            line = raw.rstrip("\n")
-            # пропускаем пустые строки
-            if not line.strip():
-                continue
-            # строки, начинающиеся с '#' считаем комментарием и тоже пропускаем
-            if line.lstrip().startswith("#"):
-                continue
-
-            prompt = get_user_info()
-            print(prompt + line)
-
-            try:
-                try:
-                    tokens = shlex.split(line, posix=True)
-                except Exception as e:
-                    print(f"error in script {path} at line {lineno}: parse error: {e}")
-                    sys.exit(1)
-
-                expanded = [expand_token(t) for t in tokens]
-                if not expanded:
-                    continue
-                command_name, *args = expanded
-                command = self.registry.get(command_name)
-                if command is None:
-                    print(f"error in script {path} at line {lineno}: command not found: {command_name}")
-                    sys.exit(1)
-
-                # execute and catch command-specific errors
-                try:
-                    command.execute(args)
-                except CommandError as ce:
-                    print(f"error in script {path} at line {lineno}: {ce}")
-                    sys.exit(1)
-                except Exception as e:
-                    print(f"unexpected error in script {path} at line {lineno}: {e}")
-                    sys.exit(1)
-
-            except SystemExit:
-                raise
 
 
 def make_default_registry() -> CommandRegistry:
