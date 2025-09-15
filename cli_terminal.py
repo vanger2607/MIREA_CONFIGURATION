@@ -1,9 +1,11 @@
+#!/usr/bin/env python3
 import os
+import re
 import socket
 import getpass
 import shlex
 import sys
-
+import argparse
 from typing import Dict, List, Tuple
 
 # Алиасы:
@@ -13,56 +15,88 @@ OptionsList = List[str]
 OptionName = str
 OptionTakesValue = bool
 IntOrNone = int | None
+StringOrNone = str | None
 
-
-# Исключения:
+# -----------------------
+# Исключения
+# -----------------------
 class CommandError(Exception):
     """Базовое исключение для ошибок команд"""
-
     pass
+
+
+class EnvironmentVariableNotFoundError(CommandError):
+    """Переменная окружения не найдена"""
+    def __init__(self, var: str):
+        super().__init__(f"environment variable not found: {var}")
+        self.var = var
 
 
 class InvalidArgumentsError(CommandError):
     """Неверное количество или формат аргументов"""
-
     pass
 
 
 class InvalidOptionError(CommandError):
     """Неизвестная опция"""
-
     pass
 
 
 class ExecutionError(CommandError):
     """Ошибка выполнения команды (runtime)"""
-
     pass
 
 
-# вспомогательные функции:
-def get_user_info() -> str:
-    """Создаёт приглашение вида user@host:cwd$ (cwd сокращается к ~ при необходимости)"""
+# -----------------------
+# Вспомогательные функции
+# -----------------------
+def get_user_info(vfs_path: StringOrNone = None) -> str:
+    """
+    Создаёт приглашение.
+    Если vfs_path задан — показываем его (важно для конфигурации этапа 2).
+    Иначе показываем обычный user@host:cwd$
+    """
     user = getpass.getuser()
     host = socket.gethostname()
     cwd = os.getcwd()
     home = os.path.expanduser("~")
     if cwd.startswith(home):
-        cwd_display = "~" + cwd[len(home) :]
+        cwd_display = cwd[len(home) :]
     else:
         cwd_display = cwd
-    return f"{user}@{host}:{cwd_display}$ "
+
+    if vfs_path:
+        # отображаем VFS в приглашении, как просили: vfs_path:cwd$
+        return f"{user}@{host}:[vfs:{vfs_path}]{cwd_display}$ "
+    else:
+        return f"{user}@{host}:{cwd_display}$ "
 
 
 def expand_token(token: str) -> str:
-    """Сначала раскрываем ~ (expanduser), затем переменные окружения $VAR (expandvars)"""
-    return os.path.expandvars(os.path.expanduser(token))
+    """
+    Раскрываем ~ (expanduser), затем проверяем все вхождения переменных окружения
+    ($VAR или ${VAR}). Если какая-то переменная не определена — поднимаем
+    EnvironmentVariableNotFoundError. Если все OK — возвращаем результат expandvars.
+    """
+    expanded = os.path.expanduser(token)
+
+    # Pattern находит $VAR и ${VAR}
+    pattern = re.compile(r"\$(\w+)|\$\{([^}]+)\}")
+    matches = pattern.findall(expanded)
+
+    for m in matches:
+        var = m[0] or m[1]  # либо $VAR, либо ${VAR}
+        if var not in os.environ:
+            raise EnvironmentVariableNotFoundError(var)
+
+    return os.path.expandvars(expanded)
 
 
+# -----------------------
 # Базовый класс команд
+# -----------------------
 class Command:
     """Базовый класс для команд"""
-
     name: str = ""
     allowed_options: Dict[OptionName, OptionTakesValue] = {}
     min_args: int = 0
@@ -73,7 +107,7 @@ class Command:
             raise ValueError("Command subclass must set 'name' attribute")
 
     def parse(self, argv: ArgList) -> Tuple[PositionArgsList, OptionsList]:
-        """Базовый парсер, не поддерживающий большое количество функционала"""
+        """Простейший парсер опций/позиционных аргументов"""
         options: OptionsList = []
         arguments: PositionArgsList = []
         for token in argv:
@@ -84,7 +118,6 @@ class Command:
             else:
                 arguments.append(token)
 
-        # блок проверок, возможно стоит вынести в отдельные функции
         for opt in options:
             if self.allowed_options and opt not in self.allowed_options:
                 raise InvalidOptionError(f"{self.name}: invalid option: {opt}")
@@ -101,20 +134,17 @@ class Command:
         return arguments, options
 
     def execute(self, argv: ArgList) -> None:
-        """Заглушка, метод обязательно переписывать в классах-наследниках"""
+        """Заглушка"""
         raise NotImplementedError("Command.execute must be implemented")
 
 
-# Команды:
+# -----------------------
+# Команды
+# -----------------------
 class LsCommand(Command):
     name = "ls"
     allowed_options: Dict[OptionName, OptionTakesValue] = {
-        "-a": False,
-        "-l": False,
-        "-h": False,
-        "-R": False,
-        "-t": False,
-        "-r": False,
+        "-a": False, "-l": False, "-h": False, "-R": False, "-t": False, "-r": False
     }
     min_args = 0
     max_args = None
@@ -134,11 +164,7 @@ class LsCommand(Command):
 
 class CdCommand(Command):
     name = "cd"
-    allowed_options: Dict[OptionName, OptionTakesValue] = {
-        "..": False,
-        "~": False,
-        "/": False,
-    }
+    allowed_options: Dict[OptionName, OptionTakesValue] = {"..": False, "~": False, "/": False}
     min_args = 0
     max_args = 1
 
@@ -167,7 +193,9 @@ class ExitCommand(Command):
         sys.exit(0)
 
 
+# -----------------------
 # Реестр команд
+# -----------------------
 class CommandRegistry:
     def __init__(self) -> None:
         self.commands: Dict[str, Command] = {}
@@ -182,35 +210,133 @@ class CommandRegistry:
         return sorted(self.commands.keys())
 
 
+# -----------------------
 # REPL
+# -----------------------
 class REPL:
-    def __init__(self, registry: CommandRegistry) -> None:
+    def __init__(self, registry: CommandRegistry, vfs_path: StringOrNone = None) -> None:
         self.registry = registry
+        self.vfs_path = vfs_path
 
     def run_interactive(self) -> None:
         while True:
-            prompt = get_user_info()
+            prompt = get_user_info(self.vfs_path)
             print(prompt, end="")
-            line = input()
             try:
-                if not line.strip():
-                    continue
+                line = input()
+            except EOFError:
+                print()  # newline on Ctrl-D
+                return
+
+            if not line.strip():
+                continue
+
+            try:
                 try:
                     tokens = shlex.split(line, posix=True)
                 except Exception as e:
                     raise CommandError(f"parse error: {e}")
-                expanded = [expand_token(t) for t in tokens]
+
+                # expand tokens, catch missing env var explicitly
+                expanded = []
+                for t in tokens:
+                    try:
+                        expanded.append(expand_token(t))
+                    except EnvironmentVariableNotFoundError as ev:
+                        # показываем читаемое сообщение и не выполняем команду
+                        print("error:", ev)
+                        expanded = None
+                        break
+                if expanded is None:
+                    continue  # вернуться в интерактив
+
                 command_name, *args = expanded
                 command = self.registry.get(command_name)
                 if command is None:
                     raise CommandError(f"command not found: {command_name}")
                 command.execute(args)
+
             except CommandError as ce:
                 print("error:", ce)
             except Exception as e:
                 print("unexpected error:", e)
 
+    def run_script(self, path: str) -> None:
+        """
+        Выполнить стартап-скрипт.
+         - печатает приглашение + ввод (строка из скрипта)
+         - выполняет команду; при первой ошибке сообщает с номером строки и завершает с кодом 1
+        """
+        if not path:
+            print("no script path provided")
+            raise FileNotFoundError(path)
+        if not os.path.exists(path):
+            print(f"script not found: {path}")
+            raise FileNotFoundError(path)
 
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        except Exception as e:
+            print(f"cannot read script '{path}': {e}")
+            raise
+
+        for lineno, raw in enumerate(lines, start=1):
+            line = raw.rstrip("\n")
+            # пропускаем пустые строки и комментарии
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+
+            prompt = get_user_info(self.vfs_path)
+            # эхо ввода: приглашение + команда
+            print(prompt + line)
+
+            # разбираем и выполняем; при любой ошибке — сообщаем и выходим (stop on first error)
+            try:
+                try:
+                    tokens = shlex.split(line, posix=True)
+                except Exception as e:
+                    print(f"error in script {path} at line {lineno}: parse error: {e}")
+                    sys.exit(1)
+
+                # раскрытие переменных — отдельная обработка, чтобы корректно показать ошибку
+                expanded = []
+                try:
+                    for t in tokens:
+                        expanded.append(expand_token(t))
+                except EnvironmentVariableNotFoundError as ev:
+                    print(f"error in script {path} at line {lineno}: {ev}")
+                    sys.exit(1)
+
+                if not expanded:
+                    continue
+
+                command_name, *args = expanded
+                command = self.registry.get(command_name)
+                if command is None:
+                    print(f"error in script {path} at line {lineno}: command not found: {command_name}")
+                    sys.exit(1)
+
+                try:
+                    command.execute(args)
+                except CommandError as ce:
+                    print(f"error in script {path} at line {lineno}: {ce}")
+                    sys.exit(1)
+                except SystemExit:
+                    # если команда внутри вызвала exit() — распространяем
+                    raise
+                except Exception as e:
+                    print(f"unexpected error in script {path} at line {lineno}: {e}")
+                    sys.exit(1)
+
+            except SystemExit:
+                # позволяем exit() завершить всё приложение
+                raise
+
+
+# -----------------------
+# Утилиты
+# -----------------------
 def make_default_registry() -> CommandRegistry:
     registry = CommandRegistry()
     registry.register(LsCommand())
@@ -219,11 +345,55 @@ def make_default_registry() -> CommandRegistry:
     return registry
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Configurable emulator (stage 2)")
+    parser.add_argument("--vfs", "-v", dest="vfs_path", default=None, help="Path to physical VFS location")
+    parser.add_argument("--script", "-s", dest="script", default=None, help="Path to startup script")
+    return parser.parse_args()
+
+
+# -----------------------
+# main
+# -----------------------
 def main() -> None:
+    args = parse_args()
+
+    # отладочный вывод всех параметров при старте
+    print("Starting emulator with parameters:")
+    print(f" argv: {sys.argv}")
+    print(f" vfs_path: {args.vfs_path}")
+    print(f" script: {args.script}")
+
+    if args.vfs_path:
+        try:
+            expanded_vfs = expand_token(args.vfs_path)
+            print(f" expanded vfs_path: {expanded_vfs}")
+        except EnvironmentVariableNotFoundError as ev:
+            print("error:", ev)
+            sys.exit(1)
+
     command_registry = make_default_registry()
-    repl = REPL(command_registry)
+    repl = REPL(command_registry, vfs_path=args.vfs_path)
+
+    if args.script:
+        try:
+            repl.run_script(args.script)
+        except FileNotFoundError:
+            print(f"start script not found: {args.script}")
+            sys.exit(1)
+        except SystemExit:
+            # если внутри скрипта вызван exit(), завершаем приложение
+            raise
+        except Exception as e:
+            print(f"error while executing start script: {e}")
+            sys.exit(1)
+        else:
+            print(f"start script {args.script} finished successfully")
+
+    # перейти в интерактивный режим
     repl.run_interactive()
 
 
 if __name__ == "__main__":
     main()
+
