@@ -68,7 +68,7 @@ CLI-приложение для эмулятора языка-оболочки U
 git clone https://github.com/vanger2607/MIREA_CONFIGURATION.git
 
 # Переходим в папку проекта
-cd cd MIREA_CONFIGURATION
+cd MIREA_CONFIGURATION
 
 # переходим в нужную ветку
 git checkout stage_2_configuration
