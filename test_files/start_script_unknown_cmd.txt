@@ -1,0 +1,6 @@
+ls
+some_unknown_command
+ls
+ls
+ls
+cd .

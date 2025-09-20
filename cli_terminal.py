@@ -229,7 +229,7 @@ class REPL:
             raise
 
         for lineno, raw in enumerate(lines, start=1):
-            line = raw.rstrip("\n")
+            line = raw.rstrip("\r\n")
             prompt = get_user_info(self.vfs_path)
             print(prompt + line)
 

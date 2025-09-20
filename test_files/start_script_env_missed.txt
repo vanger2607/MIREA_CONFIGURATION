@@ -1,0 +1,4 @@
+cd $UNSET_ENV_VAR
+ls
+ls -a
+exit
