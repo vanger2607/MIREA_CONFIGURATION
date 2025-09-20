@@ -86,6 +86,6 @@ python cli_terminal.py --script=test_files\\start_script_unknown_cmd.txt
 python cli_terminal.py --script=test_files\\start_script_env_missed.txt
 
 # Запуск bat скрипта:
-.\\test_files\test_run.bat 
+.\\test_files\\test_run.bat 
 
 
