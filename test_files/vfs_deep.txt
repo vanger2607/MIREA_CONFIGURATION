@@ -1,0 +1,8 @@
+ls /
+ls /a
+ls /a/b
+ls /a/b/c
+ls /a/b/c/secret.bin
+cd /a/b/c
+ls .
+exit

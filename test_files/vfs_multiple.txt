@@ -1,0 +1,9 @@
+ls /
+ls /etc
+ls /etc/config.yaml
+ls /var/log
+ls /home/user
+cd /home/user
+ls .
+cd /no/such
+exit

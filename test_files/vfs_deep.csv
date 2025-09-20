@@ -1,0 +1,6 @@
+path,type,content_base64
+/,dir,
+/a,dir,
+/a/b,dir,
+/a/b/c,dir,
+/a/b/c/secret.bin,file,AAECAwQ=

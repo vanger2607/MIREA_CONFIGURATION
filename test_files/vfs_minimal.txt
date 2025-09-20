@@ -1,0 +1,7 @@
+ls /
+ls /hello.txt
+cd /
+ls
+# неверная команда
+foobar
+exit
