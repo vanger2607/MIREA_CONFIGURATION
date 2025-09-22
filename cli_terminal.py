@@ -49,7 +49,7 @@ def get_user_info(vfs_path: StringOrNone = None, vfs_cwd: StringOrNone = None) -
     host = socket.gethostname()
     if vfs_path:
         cwd = vfs_cwd or "/"
-        return f"{user}@{host}:[vfs:{vfs_path}]{cwd}$ "
+        return f"{user}@{host}:[vfs:{vfs_path}]{cwd} "
     else:
         cwd = os.getcwd()
         return f"{user}@{host}:{cwd}$ "
