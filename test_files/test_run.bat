@@ -1,2 +1,2 @@
 @echo off
-python ./cli_terminal.py --vfs=C:\Temp --script=test_files\start_script_ok.txt
+python cli_terminal.py --vfs test_files\\vfs_multiple.csv --script test_files\\vfs_multiple.txt
