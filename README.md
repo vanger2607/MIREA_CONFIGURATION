@@ -85,7 +85,9 @@ python cli_terminal.py --script=test_files\\start_script_unknown_cmd.txt
 # Пример скрипта с недоступной переменной окружения 
 python cli_terminal.py --script=test_files\\start_script_env_missed.txt
 
-# Запуск bat скрипта:
+# Запуски bat скриптов:
 .\\test_files\\test_run.bat 
 
+.\\test_files\\third_test.bat
 
+.\\test_files\\second_test.bat

@@ -20,16 +20,20 @@ StringOrNone = Optional[str]
 class CommandError(Exception):
     pass
 
+
 class EnvironmentVariableNotFoundError(CommandError):
     def __init__(self, var: str):
         super().__init__(f"environment variable not found: {var}")
         self.var = var
 
+
 class InvalidArgumentsError(CommandError):
     pass
 
+
 class InvalidOptionError(CommandError):
     pass
+
 
 class ExecutionError(CommandError):
     pass
@@ -48,6 +52,7 @@ def get_user_info(vfs_path: StringOrNone = None) -> str:
     else:
         cwd = os.getcwd()
         return f"{user}@{host}:{cwd}$ "
+
 
 def expand_token(token: str) -> str:
     expanded = os.path.expanduser(token)
@@ -103,7 +108,12 @@ class Command:
 class LsCommand(Command):
     name = "ls"
     allowed_options: Dict[OptionName, OptionTakesValue] = {
-        "-a": False, "-l": False, "-h": False, "-R": False, "-t": False, "-r": False
+        "-a": False,
+        "-l": False,
+        "-h": False,
+        "-R": False,
+        "-t": False,
+        "-r": False,
     }
     min_args = 0
     max_args = None
@@ -139,6 +149,7 @@ class CdCommand(Command):
         else:
             print(" no options")
 
+
 class ExitCommand(Command):
     name = "exit"
     allowed_options: Dict[OptionName, OptionTakesValue] = {}
@@ -149,8 +160,6 @@ class ExitCommand(Command):
         self.parse(argv)
         print("exit called — exiting")
         sys.exit(0)
-
-
 
 
 class CommandRegistry:
@@ -168,7 +177,9 @@ class CommandRegistry:
 
 
 class REPL:
-    def __init__(self, registry: CommandRegistry, vfs_path: StringOrNone = None) -> None:
+    def __init__(
+        self, registry: CommandRegistry, vfs_path: StringOrNone = None
+    ) -> None:
         self.registry = registry
         self.vfs_path = vfs_path
 
@@ -241,8 +252,6 @@ class REPL:
                     tokens = shlex.split(line, posix=True)
                 except Exception as e:
                     print(f"error in script {path} at line {lineno}: parse error: {e}")
-                    sys.exit(1)
-
 
                 expanded = []
                 try:
@@ -250,7 +259,6 @@ class REPL:
                         expanded.append(expand_token(t))
                 except EnvironmentVariableNotFoundError as ev:
                     print(f"error in script {path} at line {lineno}: {ev}")
-                    sys.exit(1)
 
                 if not expanded:
                     continue
@@ -258,8 +266,10 @@ class REPL:
                 command_name, *args = expanded
                 command = self.registry.get(command_name)
                 if command is None:
-                    print(f"error in script {path} at line {lineno}: command not found: {command_name}")
-                    sys.exit(1)
+                    print(
+                        f"error in script {path} at line {lineno}: command not found: {command_name}"
+                    )
+                    raise EnvironmentVariableNotFoundError
 
                 try:
                     command.execute(args)
@@ -283,10 +293,19 @@ def make_default_registry() -> CommandRegistry:
     registry.register(ExitCommand())
     return registry
 
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--vfs", "-v", dest="vfs_path", default=None, help="Path to physical VFS location (display only)")
-    parser.add_argument("--script", "-s", dest="script", default=None, help="Path to startup script")
+    parser.add_argument(
+        "--vfs",
+        "-v",
+        dest="vfs_path",
+        default=None,
+        help="Path to physical VFS location (display only)",
+    )
+    parser.add_argument(
+        "--script", "-s", dest="script", default=None, help="Path to startup script"
+    )
     return parser.parse_args()
 
 
@@ -313,12 +332,11 @@ def main() -> None:
             raise
         except Exception as e:
             print(f"error while executing start script: {e}")
-            sys.exit(1)
         else:
             print(f"start script {args.script} finished successfully")
-            sys.exit(0)
 
     repl.run_interactive()
+
 
 if __name__ == "__main__":
     main()
