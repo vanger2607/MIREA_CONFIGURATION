@@ -96,7 +96,8 @@ python cli_terminal.py --vfs test_files\\vfs_minimal.csv --script test_files\\vf
 python cli_terminal.py --vfs test_files\\vfs_multiple.csv --script test_files\\vfs_multiple.txt
 # многоуровневаня структура vfs
 python cli_terminal.py --vfs test_files\\vfs_deep.csv --script test_files\\vfs_deep.txt
-
+# скрипт с ошибкой:
+python cli_terminal.py --vfs test_files\\vfs_deep.csv --script test_files\\script_with_error.txt
 
 # Запуск bat скрипта:
 .\\test_files\\test_run.bat 

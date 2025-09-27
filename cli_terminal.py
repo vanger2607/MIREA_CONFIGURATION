@@ -153,7 +153,7 @@ class VirtualFileSystem:
                 node.children = {}
                 node.content = b""
                 node.link_target = None
-            elif node_type == "link": 
+            elif node_type == "link":
                 node.children = {}
                 node.content = b""
                 node.link_target = None
@@ -233,7 +233,7 @@ class VirtualFileSystem:
                 # нормализуем относительную ссылку относительно родителя
                 if not target.startswith('/'):
                     if processed_parts[:-1]:
-                        parent = '/' + '/'.join(processed_parts[:-1]) 
+                        parent = '/' + '/'.join(processed_parts[:-1])
                     else:
                         parent = '/'
                     if parent.endswith('/'):
@@ -460,7 +460,13 @@ class REPL:
             except Exception as e:
                 print("unexpected error:", e)
 
-    def run_script(self, path: str) -> None:
+    def run_script(self, path: str) -> bool:
+        """
+        Выполняет скрипт. Возвращает True при успешном завершении,
+        False если скрипт прерван из-за ошибки (при этом процесс НЕ завершается).
+        Если команда в скрипте вызвала SystemExit (например exit), это исключение
+        пробрасывается дальше и завершит процесс.
+        """
         if not path:
             print("no script path provided")
             raise FileNotFoundError(path)
@@ -484,43 +490,46 @@ class REPL:
             prompt = get_user_info(self.vfs_path, self.vfs_cwd)
             print(prompt + line)
 
+            # 1) parse
             try:
-                try:
-                    tokens = shlex.split(line, posix=True)
-                except Exception as e:
-                    print(f"error in script {path} at line {lineno}: parse error: {e}")
-                    sys.exit(1)
+                tokens = shlex.split(line, posix=True)
+            except Exception as e:
+                print(f"error in script {path} at line {lineno}: parse error: {e}")
+                return False
 
-                expanded = []
-                try:
-                    for t in tokens:
-                        expanded.append(expand_token(t))
-                except EnvironmentVariableNotFoundError as ev:
-                    print(f"error in script {path} at line {lineno}: {ev}")
-                    sys.exit(1)
+            # 2) expand variables
+            expanded = []
+            try:
+                for t in tokens:
+                    expanded.append(expand_token(t))
+            except EnvironmentVariableNotFoundError as ev:
+                print(f"error in script {path} at line {lineno}: {ev}")
+                return False
 
-                if not expanded:
-                    continue
+            if not expanded:
+                continue
 
-                command_name, *args = expanded
-                command = self.registry.get(command_name)
-                if command is None:
-                    print(f"error in script {path} at line {lineno}: command not found: {command_name}")
-                    sys.exit(1)
+            # 3) lookup command
+            command_name, *args = expanded
+            command = self.registry.get(command_name)
+            if command is None:
+                print(f"error in script {path} at line {lineno}: command not found: {command_name}")
+                return False
 
-                try:
-                    command.execute(args)
-                except CommandError as ce:
-                    print(f"error in script {path} at line {lineno}: {ce}")
-                    sys.exit(1)
-                except SystemExit:
-                    raise
-                except Exception as e:
-                    print(f"unexpected error in script {path} at line {lineno}: {e}")
-                    sys.exit(1)
-
+            # 4) execute
+            try:
+                command.execute(args)
+            except CommandError as ce:
+                print(f"error in script {path} at line {lineno}: {ce}")
+                return False
             except SystemExit:
+                # если скрипт явно вызывает exit, пусть это завершит процесс
                 raise
+            except Exception as e:
+                print(f"unexpected error in script {path} at line {lineno}: {e}")
+                return False
+
+        return True
 
 
 def make_default_registry() -> CommandRegistry:
@@ -552,18 +561,21 @@ def main() -> None:
 
     if args.script:
         try:
-            repl.run_script(args.script)
+            ok = repl.run_script(args.script)
         except FileNotFoundError:
             print(f"start script not found: {args.script}")
             sys.exit(1)
         except SystemExit:
+            # если в скрипте явно вызвали exit(), завершаем процесс
             raise
         except Exception as e:
             print(f"error while executing start script: {e}")
-            sys.exit(1)
+            ok = False
+
+        if not ok:
+            print(f"start script {args.script} terminated with errors; dropping to interactive REPL")
         else:
             print(f"start script {args.script} finished successfully")
-            sys.exit(0)
 
     repl.run_interactive()
 
