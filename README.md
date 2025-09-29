@@ -137,7 +137,7 @@ git clone https://github.com/vanger2607/MIREA_CONFIGURATION.git
 cd MIREA_CONFIGURATION
 
 # переходим в нужную ветку
-git checkout stage_3_vfs
+git checkout stage_4_commands
 # Запускаем CLI-терминал
 python cli_terminal.py
 ```
