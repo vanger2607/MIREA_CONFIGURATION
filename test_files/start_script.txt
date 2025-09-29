@@ -1,0 +1,59 @@
+
+ls 
+ls -a 
+ls -l
+ls -lh
+ls -S /
+ls -r /
+ls -R /
+
+
+# Проверка несуществующего пути (ожидается сообщение об ошибке, но скрипт продолжит)
+ls /no/such/path
+
+
+# Работа с директорией /test
+ls /test
+ls -l /test
+cd /test
+pwd
+ls .
+ls ..
+
+
+# Проверки wc
+wc /test/skip_test.txt
+wc /test/ignore_case.txt
+wc /test
+
+
+# Проверки uniq (много режимов)
+uniq /test/skip_test.txt
+uniq -c /test/skip_test.txt
+uniq -d /test/skip_test.txt
+uniq -u /test/skip_test.txt
+uniq -A /test/skip_test.txt
+uniq -i /test/ignore_case.txt
+uniq -f 1 /test/skip_test.txt
+uniq -s 1 /test/skip_test.txt
+uniq -f 1 -s 2 /test/skip_test.txt
+uniq -c /test/skip_test.txt
+uniq -d /test/skip_test.txt
+uniq -u /test/skip_test.txt
+uniq -A /test/skip_test.txt
+uniq -i /test/for_i.txt
+uniq -c /test/for_c.txt
+uniq -f 1 /test/for_f.txt
+uniq -s 1 /test/for_s.txt
+uniq -f 1 -s 2 /test/for_f.txt
+
+# Некорректные/пограничные случаи, которые не приведут к аварийному завершению:
+wc /nonexistent.txt
+uniq /test
+
+
+# Ошибочная опция (поставлена в самом конце — ожидаем, что скрипт завершится с ошибкой здесь):
+ls -z
+
+
+# Конец

@@ -1,0 +1,20 @@
+path,type,content_base64
+/,dir,
+/test,dir,
+/test/skip_test.txt,file,SEVBREVSCkFCOmFwcGxlCkNEOmFwcGxlCkVGOmJhbmFuYQpHSDpiYW5hbmEKSUo6QXBwbGUKS0w6YXBwbGUK
+/test/for_f.txt,file,SEVBREVSCmFwcGxlCmFwcGxlCmJhbmFuYQpiYW5hbmEKYXBwbGUK
+/test/for_s.txt,file,YWFwcGxlCmJhcHBsZQpjYXBwbGUKYXBwbGUK
+/test/for_i.txt,file,QXBwbGUKYXBwbGUKQVBQTEUKYmFuYW5hCkJBTkFOQQpDaGVycnkK
+/test/for_c.txt,file,eAp4CngKeQp6CnoK
+/test/ignore_case.txt,file,YXBwbGUKQXBwbGUKQVBQTEUKYmFuYW5hCkJhbmFuYQpCQU5BTkEKQ2hlcnJ5CmNoZXJyeQo=
+/test/subdir,dir,
+/test/subdir/numbers.txt,file,MTIzCjQ1Ngo3ODkKCi0xMjM0NQoxMDI0Cg==
+/test/.hiddenfile,file,c2VjcmV0Cg==
+/readme.txt,file,SGVsbG8KV29ybGQK
+/empty.txt,file,
+/multiline.txt,file,bGluZSAxCmxpbmUgMgpsaW5lIDMKbGluZSA0CmxpbmUgNQpsaW5lIDYKbGluZSA3CmxpbmUgOApsaW5lIDkKbGluZSAxMAo=
+/bin,dir
+/bin/ls.sh,file,IyEvYmluL3NoCmVjaG8gaGkK
+/dir with space,dir
+/dir with space/file name.txt,file,ZGF0YSB3aXRoIHNwYWNlcwo=
+/.env,file,VVNFUj1JVkFO

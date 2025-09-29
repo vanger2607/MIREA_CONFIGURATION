@@ -1,6 +1,9 @@
 path,type,content_base64
 /,dir,
-/a,dir,
-/a/b,dir,
-/a/b/c,dir,
-/a/b/c/secret.bin,file,AAECAwQ=
+"/a",dir,
+"/a/b",dir,
+"/a/b/c",dir,
+"/a/b/c/secret.bin",file,YWJjZGU= 
+"/.hidden",file,aGlkZGVuX2ZpbGU=
+"/bigfile.bin",file,QUJDREVGR0hJSg==
+"/notes.txt",file,Rmlyc3QgbGluZQpGaXJzdCBsaW5lCkZpcnN0IGxpbmU=
