@@ -73,16 +73,22 @@ exit
 пример ввода команды ls:
 
 
-![пример команды с ls](image.png)
+![Пример команды ls](image-9.png)
 
 
-пример ввода команды с параметрами:
+![Пример команды ls с флагами -lh](image-10.png)
 
 
-![пример команды с аргументами](image-1.png)
+
+пример ввода команды cd:
 
 
-пример ввода с ошибочным число параметров:
+![пример ввода cd](image-11.png)
+
+![пример ввода cd с ..](image-12.png)
+
+
+пример ввода с ошибочным числом параметров:
 
 
 ![пример ввода команды с ошибочным количеситвом аргументов](image-2.png)
@@ -149,7 +155,7 @@ python cli_terminal.py --vfs test_files\\vfs_deep.csv --script test_files\\vfs_d
 python cli_terminal.py --vfs test_files\\vfs_deep.csv --script test_files\\script_with_error.txt
 
 # стартовый скрипт 
- python cli_terminal.py --vfs test_files\\vfs_start.csv --script test_files\\start_script.txt
+python cli_terminal.py --vfs test_files\\vfs_start.csv --script test_files\\start_script.txt
 
 # Запуск bat скрипта:
 .\\test_files\\test_run.bat 
