@@ -134,6 +134,7 @@ class VirtualFileSystem:
                 raise ValueError("cannot create non-dir at root")
             return
 
+
         cur = self.root
         for idx, part in enumerate(parts[:-1]):
             child = cur.children.get(part)
@@ -207,7 +208,7 @@ class VirtualFileSystem:
                 raise ValueError(f"CSV missing required headers: {', '.join(sorted(missing))}")
             for row in reader:
                 raw_path = row['path']
-                # Normalize the path from CSV (replace '\' -> '/')
+                # Normalize the path from CSV (replace '\\' -> '/')
                 try:
                     norm_path = raw_path.replace("\\", "/")
                 except Exception:
@@ -215,6 +216,8 @@ class VirtualFileSystem:
                 node_type = row['type']
                 content_b64 = row.get('content_base64') or None
                 self.add_node(norm_path, node_type, content_b64, overwrite=True)
+
+
 
     def resolve_node(self, path: str, visited: set | None = None) -> VFSNode:
         """Find a node by absolute path, resolving symlinks."""
@@ -320,6 +323,7 @@ class VirtualFileSystem:
         walk(self.root, "")
 
 
+
 class Command:
     name: str = ""
     allowed_options: Dict[OptionName, OptionTakesValue] = {}
@@ -368,9 +372,6 @@ class Command:
 
             if token.startswith("-") and len(token) > 1:
                 # short options or short-with-value
-                # example: -abc  -> -a -b -c
-                # example: -fVALUE or -f VALUE -> -f: "VALUE" (only if -f takes value)
-                # iterate characters after first '-'
                 j = 1
                 consumed_value = False
                 while j < len(token):
@@ -382,7 +383,7 @@ class Command:
                         raise InvalidOptionError(f"{self.name}: invalid option: {opt}")
                     if takes_value:
                         # rest of token after this char is the value, if non-empty; otherwise look to next argv
-                        val = token[j+1:]  # may be empty
+                        val = token[j+1:]
                         if val == "":
                             # try next argv token
                             i += 1
@@ -415,7 +416,6 @@ class Command:
     def execute(self, argv: ArgList) -> None:
         raise NotImplementedError("Command.execute must be implemented")
 
-
 class LsCommand(Command):
     name = "ls"
     allowed_options: Dict[OptionName, OptionTakesValue] = {
@@ -423,7 +423,7 @@ class LsCommand(Command):
     }
     min_args = 0
     max_args = None
-    description = "List directory contents (VFS or real FS). Flags: -a show hidden, -l long listing, -h human-readable sizes, -R recurse, -r reverse, -S sort by size."
+    description = "List directory contents (VFS or real FS). Flags: -a show hidden, -l long listing, -h human-readable sizes, -R recurse, -r reverse, -S sort by size.\nUsage: ls [options] [path...]"
 
 
     def human_size(self, n: int) -> str:
@@ -499,6 +499,8 @@ class LsCommand(Command):
         out_lines: List[str] = []
         multiple = len(targets) > 1
 
+
+
         for t in targets:
             if repl.vfs:
                 try:
@@ -551,7 +553,7 @@ class CdCommand(Command):
     allowed_options: Dict[OptionName, OptionTakesValue] = {}
     min_args = 0
     max_args = 1
-    description = "Change current directory (VFS or real FS). Accepts one path (absolute or relative); supports '.' and '..'."
+    description = "Change current directory (VFS or real FS). Accepts one path (absolute or relative); supports '.' and '..'.\nUsage: cd [directory]"
 
     def execute(self, argv: ArgList) -> None:
         positional, options = self.parse(argv)
@@ -587,7 +589,7 @@ class ExitCommand(Command):
     allowed_options: Dict[OptionName, OptionTakesValue] = {}
     min_args = 0
     max_args = 0
-    description = "Exit the REPL."
+    description = "Exit the REPL.\nUsage: exit"
 
     def execute(self, argv: ArgList) -> None:
         self.parse(argv)
@@ -600,7 +602,9 @@ class WcCommand(Command):
     allowed_options: Dict[OptionName, OptionTakesValue] = {}
     min_args = 1
     max_args = None
-    description = "Count lines, words and bytes of files (VFS or real FS)."
+    description = "Count lines, words and bytes of files (VFS or real FS).\nUsage: wc [file ...]"
+
+
 
     def count_bytes_words_lines(self, data: bytes) -> Tuple[int, int, int]:
         text = data.decode("utf-8", errors="replace")
@@ -652,7 +656,7 @@ class UniqCommand(Command):
     }
     min_args = 1
     max_args = 1
-    description = "Filter duplicate lines. Options: -c prefix counts, -d show only duplicates, -u show only uniques, -A/--all global (not only adjacent), -f N ignore first N fields, -s N skip first N chars, -i ignore case. Use 'help uniq' for examples."
+    description = "Filter duplicate lines. Options: -c prefix counts, -d show only duplicates, -u show only uniques, -A/--all global (not only adjacent), -f N ignore first N fields, -s N skip first N chars, -i ignore case. Use 'help uniq' for examples.\nUsage: uniq [options] file"
 
     def execute(self, argv: ArgList) -> None:
         positionals, opts = self.parse(argv)
@@ -708,6 +712,8 @@ class UniqCommand(Command):
         if not tail:
             return
 
+
+
         def cmp_key(line: str) -> str:
             k = line if skip_chars <= 0 else ("" if len(line) <= skip_chars else line[skip_chars:])
             return k.lower() if ignore_case else k
@@ -760,7 +766,7 @@ class PwdCommand(Command):
     allowed_options: Dict[OptionName, OptionTakesValue] = {}
     min_args = 0
     max_args = 0
-    description = "Print working directory (VFS or real FS)."
+    description = "Print working directory (VFS or real FS).\nUsage: pwd"
 
     def execute(self, argv: ArgList) -> None:
         self.parse(argv)
@@ -776,7 +782,7 @@ class RmCommand(Command):
     allowed_options: Dict[OptionName, OptionTakesValue] = {"-r": False, "-i": False, "-d": False, "--dir": False}
     min_args = 1
     max_args = None
-    description = "Remove files or directories from the mounted VFS (in-memory). Options: -r recursive, -i interactive prompt, -d/--dir remove empty directories only. (Operates on VFS only when mounted.)"
+    description = "Remove files or directories from the mounted VFS (in-memory). Options: -r recursive, -i interactive prompt, -d/--dir remove empty directories only. (Operates on VFS only when mounted.)\nUsage: rm [-r] [-i] [-d|--dir] path..."
     def execute(self, argv: ArgList) -> None:
         positionals, opts = self.parse(argv)
         repl = self.repl
@@ -805,6 +811,7 @@ class RmCommand(Command):
             except Exception as e:
                 print(f"rm: error resolving '{p}': {e}")
                 continue
+
 
             # directory handling
             if node.is_dir():
@@ -859,68 +866,74 @@ class RmCommand(Command):
 
 class MkdirCommand(Command):
     name = "mkdir"
+    # support -p (parents) and -v (verbose)
+    allowed_options: Dict[OptionName, OptionTakesValue] = {"-p": False, "-v": False}
+    min_args = 1
+    max_args = None
     description = (
         "Create directories in the mounted VFS (in-memory).\n"
         "Options:\n"
         "  -p              create parent directories as needed\n"
         "  -v, --verbose   print a message for each created directory\n"
         "\n"
-        "Usage:\n"
-        "  mkdir dir1 dir2 ...        # create multiple directories\n"
-        "  mkdir -p /a/b/c            # create all missing parents\n"
-        "  mkdir -v new_dir           # print message after creation\n"
+        "Usage: mkdir [-p] [-v] dir1 dir2 ...\n"
+        "Examples:\n"
+        "  mkdir dir1 dir2        # create multiple directories\n"
+        "  mkdir -p /a/b/c        # create all missing parents\n"
+        "  mkdir -v new_dir       # print message after creation\n"
     )
 
-    def execute(self, args: list[str]):
-        """Implements mkdir with -p and -v flags (UNIX-like)."""
-        if not self.vfs:
-            print("No VFS mounted. Cannot create directories.")
-            return 1
+    def execute(self, argv: ArgList) -> None:
+        positionals, opts = self.parse(argv)
+        repl = self.repl
+        if repl is None:
+            raise ExecutionError("mkdir: no REPL context")
+        if not repl.vfs:
+            print("mkdir: operation supported only on mounted VFS (in-memory).")
+            return
 
-        import argparse
-        parser = argparse.ArgumentParser(prog="mkdir", add_help=False)
-        parser.add_argument("-p", action="store_true", dest="parents")
-        parser.add_argument("-v", "--verbose", action="store_true", dest="verbose")
-        parser.add_argument("paths", nargs="*")
-        try:
-            opts = parser.parse_args(args)
-        except SystemExit:
-            # argparse throws SystemExit if parsing fails
-            return 1
+        parents = bool(opts.get("-p", False))
+        verbose = bool(opts.get("-v", False) or opts.get("--verbose", False))
 
-        if not opts.paths:
+        if not positionals:
             print("mkdir: missing operand")
-            return 1
+            return
 
-        for raw_path in opts.paths:
-            path = self.vfs.resolve_path(raw_path)
-
-            # Case 1: -p — create all parent directories
-            if opts.parents:
-                created = self.vfs.make_dirs(path)  # assumed to create all parents
-                if created and opts.verbose:
-                    for p in created:
-                        print(f"mkdir: created directory '{p}'")
+        for raw_path in positionals:
+            try:
+                abs_path = repl.to_vfs_abs(raw_path)
+            except Exception as e:
+                print(f"mkdir: {raw_path}: {e}")
                 continue
 
-            # Case 2: normal mode — no -p
-            parent = self.vfs.dirname(path)
-            if not self.vfs.exists(parent):
-                print(f"mkdir: cannot create directory '{path}': No such file or directory")
-                continue
+            try:
+                vfs = repl.vfs
+                if parents:
+                    # add_node will create intermediate directories automatically
+                    vfs.add_node(abs_path, "dir", None, overwrite=False)
+                    if verbose:
+                        print(f"mkdir: created directory '{abs_path}'")
+                    continue
 
-            if self.vfs.exists(path):
-                print(f"mkdir: cannot create directory '{path}': File exists")
-                continue
 
-            success = self.vfs.make_dir(path)
-            if success:
-                if opts.verbose:
-                    print(f"mkdir: created directory '{path}'")
-            else:
-                print(f"mkdir: failed to create directory '{path}'")
 
-        return 0
+                # normal mode: parent must exist
+                parent = ppath.dirname(abs_path)
+                if parent == "":
+                    parent = "/"
+                if not vfs.exists(parent):
+                    print(f"mkdir: cannot create directory '{abs_path}': No such file or directory")
+                    continue
+
+                if vfs.exists(abs_path):
+                    print(f"mkdir: cannot create directory '{abs_path}': File exists")
+                    continue
+
+                vfs.add_node(abs_path, "dir", None, overwrite=False)
+                if verbose:
+                    print(f"mkdir: created directory '{abs_path}'")
+            except Exception as e:
+                print(f"mkdir: error creating '{abs_path}': {e}")
 
 
 class HelpCommand(Command):
@@ -928,7 +941,7 @@ class HelpCommand(Command):
     allowed_options: Dict[OptionName, OptionTakesValue] = {}
     min_args = 0
     max_args = None
-    description = "Show help for available commands."
+    description = "Show help for available commands.\nUsage: help [command]"
 
     def execute(self, argv: ArgList) -> None:
         positionals, opts = self.parse(argv)
@@ -1018,6 +1031,8 @@ class REPL:
             if not norm.startswith("/"):
                 norm = "/" + norm
             return norm
+
+
 
     def run_interactive(self) -> None:
         while True:
