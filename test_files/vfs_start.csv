@@ -18,3 +18,9 @@ path,type,content_base64
 /dir with space,dir
 /dir with space/file name.txt,file,ZGF0YSB3aXRoIHNwYWNlcwo=
 /.env,file,VVNFUj1JVkFO
+/dir_empty,dir,
+/dir_nonempty,dir,
+/dir_nonempty/a.txt,file,eAo=
+/to_delete.txt,file,dGVtcAo=
+/symlink_to_readme,link,L3JlYWRtZS50eHQ=
+/symlink_to_test_subdir,link,L3Rlc3Qvc3ViZGly

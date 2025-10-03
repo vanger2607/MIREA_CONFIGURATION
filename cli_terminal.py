@@ -11,7 +11,7 @@ import csv
 import base64
 import posixpath as ppath
 
-# Алиасы:
+# Aliases:
 ArgList = List[str]
 PositionArgsList = List[str]
 OptionsList = List[str]
@@ -45,7 +45,7 @@ class ExecutionError(CommandError):
 
 def get_user_info(vfs_path: StringOrNone = None, vfs_cwd: StringOrNone = None) -> str:
     """
-    Создаёт приглашение.
+    Create the prompt string.
     """
     user = getpass.getuser()
     host = socket.gethostname()
@@ -89,21 +89,21 @@ class VFSNode:
 
 class VirtualFileSystem:
     """
-    Строим дерево на основе CSV с колонками path,type,content_base64.
-    Поддерживает абсолютные пути вида /a/b/c.
+    Build a tree from a CSV with columns path,type,content_base64.
+    Supports absolute paths like /a/b/c.
     """
 
     def __init__(self) -> None:
         self.root = VFSNode("/", "dir")
 
     def normalize_vfs_path(self, path: str) -> str:
-        """Унифицирует слэши и нормализует по POSIX-правилам"""
+        """Normalize slashes and apply POSIX normalization rules."""
         if path is None:
             raise ValueError("path is None")
         p = path.replace("\\", "/").strip()
         # posix normpath: "/." -> "/", "/a//b" -> "/a/b", "///a" -> "/a"
         norm = ppath.normpath(p)
-        # normpath может вернуть "" для пустой строки — приводим к "/"
+        # normpath may return "" for empty string — convert to "/"
         if norm == "":
             norm = "/"
         if not norm.startswith("/"):
@@ -112,7 +112,7 @@ class VirtualFileSystem:
 
     def split_path(self, path: str) -> List[str]:
         """
-        Разбивает абсолютный vfs-путь на сегменты.
+        Split an absolute VFS path into segments.
         """
         norm = self.normalize_vfs_path(path)
         if norm == "/":
@@ -122,13 +122,13 @@ class VirtualFileSystem:
 
     def add_node(self, path: str, node_type: str, content_b64: str | None = None, overwrite: bool = False) -> None:
         """
-        Добавляет узел в VFS по абсолютному пути.
+        Add a node to the VFS at an absolute path.
         """
         if node_type not in {"dir", "file", "link"}:
             raise ValueError(f"invalid node_type: {node_type!r}")
 
         parts = self.split_path(path)
-        # Если путь корень:
+        # If path is root:
         if not parts:
             if node_type != "dir":
                 raise ValueError("cannot create non-dir at root")
@@ -138,16 +138,16 @@ class VirtualFileSystem:
         for idx, part in enumerate(parts[:-1]):
             child = cur.children.get(part)
             if child is None:
-                # создаём промежуточную директорию
+                # create intermediate directory
                 child = VFSNode(part, "dir")
                 cur.children[part] = child
             else:
-                # если существующий узел не директория, конфликт
+                # if existing node is not a directory, conflict
                 if child.type != "dir":
                     if not overwrite:
                         raise ValueError(f"intermediate path conflict at '/{'/'.join(parts[:idx+1])}': existing type={child.type}, expected dir")
                     else:
-                        # перезаписываем как директорию
+                        # overwrite as directory
                         child.type = "dir"
                         child.children = {}
                         child.content = b""
@@ -170,7 +170,7 @@ class VirtualFileSystem:
                     node.content = b""
                     node.link_target = None
 
-        # заполнение полей
+        # fill fields
         if node_type == "file":
             if content_b64:
                 try:
@@ -191,10 +191,10 @@ class VirtualFileSystem:
                     raise ValueError(f"link target is not valid UTF-8 at '{path}': {e}")
             else:
                 node.link_target = None
-        # dir — ничего дополнять не нужно
+        # dir — nothing else to fill
 
     def load_from_csv(self, csv_path: str) -> None:
-        """Загрузка VFS из CSV (ожидаются колонки path,type,content_base64)."""
+        """Load VFS from CSV (expects headers path,type,content_base64)."""
         if not os.path.exists(csv_path):
             raise FileNotFoundError(csv_path)
         with open(csv_path, newline='', encoding='utf-8') as csvfile:
@@ -207,7 +207,7 @@ class VirtualFileSystem:
                 raise ValueError(f"CSV missing required headers: {', '.join(sorted(missing))}")
             for row in reader:
                 raw_path = row['path']
-                # Нормализуем путь из CSV (замена '\' -> '/')
+                # Normalize the path from CSV (replace '\' -> '/')
                 try:
                     norm_path = raw_path.replace("\\", "/")
                 except Exception:
@@ -217,7 +217,7 @@ class VirtualFileSystem:
                 self.add_node(norm_path, node_type, content_b64, overwrite=True)
 
     def resolve_node(self, path: str, visited: set | None = None) -> VFSNode:
-        """Находит узел по абсолютному пути, разворачивая ссылки."""
+        """Find a node by absolute path, resolving symlinks."""
         if visited is None:
             visited = set()
         norm = self.normalize_vfs_path(path)
@@ -235,7 +235,7 @@ class VirtualFileSystem:
                 target = cur.link_target
                 if not target:
                     raise FileNotFoundError(f"broken symlink at {'/'.join(processed_parts)}")
-                # нормализуем относительную ссылку относительно родителя
+                # normalize relative link relative to parent
                 tgt = target.replace("\\", "/")
                 if not tgt.startswith('/'):
                     parent = '/' + '/'.join(processed_parts[:-1]) if processed_parts[:-1] else '/'
@@ -267,8 +267,37 @@ class VirtualFileSystem:
         except FileNotFoundError:
             return False
 
+    def remove_node(self, path: str, recursive: bool = False) -> None:
+        """
+        Remove a node at path. If it's a directory and not empty — raise IsADirectoryError.
+        If recursive=True — remove recursively.
+        """
+        norm = self.normalize_vfs_path(path)
+        if norm == "/":
+            raise ValueError("cannot remove root directory")
+        parts = self.split_path(norm)
+        if not parts:
+            raise FileNotFoundError(path)
+        parent = self.root
+        for p in parts[:-1]:
+            child = parent.children.get(p)
+            if child is None:
+                raise FileNotFoundError(path)
+            if not child.is_dir():
+                raise NotADirectoryError(f"parent component is not a directory: {p}")
+            parent = child
+        last = parts[-1]
+        node = parent.children.get(last)
+        if node is None:
+            raise FileNotFoundError(path)
+        if node.is_dir() and node.children and not recursive:
+            raise IsADirectoryError(f"directory not empty: {path}")
+        # recursive deletion — just remove reference to node (GC will clear subtree)
+        del parent.children[last]
+
     def debug_tree(self, print_fn=print) -> None:
-        """Печатает структуру VFS (дерево) для отладки."""
+        """Print the VFS structure (tree) for debugging."""
+
         def repr_node(node: VFSNode) -> str:
             if node.is_dir():
                 return f"{node.name}/"
@@ -278,7 +307,7 @@ class VirtualFileSystem:
                 return f"{node.name} -> {node.link_target or '<broken>'}"
 
         def walk(node: VFSNode, prefix: str) -> None:
-            # печатаем текущий узел (для корня отображаем '/')
+            # print current node (for root show '/')
             if node is self.root:
                 print("/")
             else:
@@ -296,6 +325,7 @@ class Command:
     allowed_options: Dict[OptionName, OptionTakesValue] = {}
     min_args: int = 0
     max_args: IntOrNone = None
+    description: str = ""
 
     def __init__(self) -> None:
         if not self.name:
@@ -304,14 +334,14 @@ class Command:
 
     def parse(self, argv: ArgList) -> Tuple[PositionArgsList, Dict[str, str | bool]]:
         """
-        Парсит argv и возвращает (positionals, options_dict).
+        Parse argv and return (positionals, options_dict).
 
-        options_dict: ключ -> True (если опция без значения) или строка (если опция имеет значение).
-        Поддерживается:
-          - одиночные short opts: -a
-          - комбинированные short opts: -la -> -l=True, -a=True
-          - short opt с аргументом: -fN или -f N 
-          - long opts: --name или --name=value (value может быть пустой строкой)
+        options_dict: key -> True (for flag) or string (for option with value).
+        Supports:
+          - single short opts: -a
+          - combined short opts: -la -> -l=True, -a=True
+          - short opt with argument: -fVALUE or -f VALUE
+          - long opts: --name or --name=value (value may be empty string)
         """
         options: Dict[str, str | bool] = {}
         positionals: List[str] = []
@@ -351,10 +381,10 @@ class Command:
                     if self.allowed_options and opt not in self.allowed_options:
                         raise InvalidOptionError(f"{self.name}: invalid option: {opt}")
                     if takes_value:
-                        # rest of tokenen after this char is the value, if non-empty; otherwise look to next argv
+                        # rest of token after this char is the value, if non-empty; otherwise look to next argv
                         val = token[j+1:]  # may be empty
                         if val == "":
-                            # try next argv tokenen
+                            # try next argv token
                             i += 1
                             if i >= len(argv):
                                 raise InvalidArgumentsError(f"{self.name}: option {opt} requires an argument")
@@ -393,6 +423,8 @@ class LsCommand(Command):
     }
     min_args = 0
     max_args = None
+    description = "List directory contents (VFS or real FS). Flags: -a show hidden, -l long listing, -h human-readable sizes, -R recurse, -r reverse, -S sort by size."
+
 
     def human_size(self, n: int) -> str:
         for unit in ("B", "K", "M", "G"):
@@ -432,7 +464,7 @@ class LsCommand(Command):
             size = len(child_node.content) if child_node.is_file() else 0
             entries.append((child_name, child_node, size))
 
-        # Сортировка
+        # Sorting
         if "-S" in options:
             entries.sort(key=lambda x: -x[2])
         else:
@@ -450,7 +482,7 @@ class LsCommand(Command):
             if entries:
                 out_lines.append("  ".join(name for name, _, _ in entries))
 
-        # рекурсия
+        # recursion
         if "-R" in options:
             for name, nd, _ in entries:
                 if nd.is_dir():
@@ -519,6 +551,7 @@ class CdCommand(Command):
     allowed_options: Dict[OptionName, OptionTakesValue] = {}
     min_args = 0
     max_args = 1
+    description = "Change current directory (VFS or real FS). Accepts one path (absolute or relative); supports '.' and '..'."
 
     def execute(self, argv: ArgList) -> None:
         positional, options = self.parse(argv)
@@ -554,6 +587,7 @@ class ExitCommand(Command):
     allowed_options: Dict[OptionName, OptionTakesValue] = {}
     min_args = 0
     max_args = 0
+    description = "Exit the REPL."
 
     def execute(self, argv: ArgList) -> None:
         self.parse(argv)
@@ -566,6 +600,7 @@ class WcCommand(Command):
     allowed_options: Dict[OptionName, OptionTakesValue] = {}
     min_args = 1
     max_args = None
+    description = "Count lines, words and bytes of files (VFS or real FS)."
 
     def count_bytes_words_lines(self, data: bytes) -> Tuple[int, int, int]:
         text = data.decode("utf-8", errors="replace")
@@ -617,6 +652,7 @@ class UniqCommand(Command):
     }
     min_args = 1
     max_args = 1
+    description = "Filter duplicate lines. Options: -c prefix counts, -d show only duplicates, -u show only uniques, -A/--all global (not only adjacent), -f N ignore first N fields, -s N skip first N chars, -i ignore case. Use 'help uniq' for examples."
 
     def execute(self, argv: ArgList) -> None:
         positionals, opts = self.parse(argv)
@@ -645,7 +681,7 @@ class UniqCommand(Command):
             print("conflict -d an -u can't be ised together")
             return
 
-        # чтение файла
+        # read file
         repl = self.repl
         try:
             if repl and repl.vfs:
@@ -724,6 +760,7 @@ class PwdCommand(Command):
     allowed_options: Dict[OptionName, OptionTakesValue] = {}
     min_args = 0
     max_args = 0
+    description = "Print working directory (VFS or real FS)."
 
     def execute(self, argv: ArgList) -> None:
         self.parse(argv)
@@ -732,6 +769,188 @@ class PwdCommand(Command):
             print(repl.vfs_cwd or "/")
         else:
             print(os.getcwd())
+
+
+class RmCommand(Command):
+    name = "rm"
+    allowed_options: Dict[OptionName, OptionTakesValue] = {"-r": False, "-i": False, "-d": False, "--dir": False}
+    min_args = 1
+    max_args = None
+    description = "Remove files or directories from the mounted VFS (in-memory). Options: -r recursive, -i interactive prompt, -d/--dir remove empty directories only. (Operates on VFS only when mounted.)"
+    def execute(self, argv: ArgList) -> None:
+        positionals, opts = self.parse(argv)
+        repl = self.repl
+        if repl is None:
+            raise ExecutionError("rm: no REPL context")
+        if not repl.vfs:
+            print("rm: operation supported only on mounted VFS (in-memory).")
+            return
+        recursive = bool(opts.get("-r", False))
+        interactive = bool(opts.get("-i", False))
+        dir_flag = bool(opts.get("-d", False) or opts.get("--dir", False))
+
+        for p in positionals:
+            try:
+                abs_path = repl.to_vfs_abs(p)
+            except Exception as e:
+                print(f"rm: {p}: {e}")
+                continue
+
+            # resolve existence
+            try:
+                node = repl.vfs.resolve_node(abs_path)
+            except FileNotFoundError:
+                print(f"rm: cannot remove '{p}': No such file or directory")
+                continue
+            except Exception as e:
+                print(f"rm: error resolving '{p}': {e}")
+                continue
+
+            # directory handling
+            if node.is_dir():
+                # If -r specified -> remove recursively (after optional prompt)
+                if recursive:
+                    if interactive:
+                        try:
+                            ans = input(f"rm: descend into directory '{p}'? [y/N] ")
+                        except EOFError:
+                            ans = ""
+                        if ans.lower() not in ("y", "yes"):
+                            continue
+                    try:
+                        repl.vfs.remove_node(abs_path, recursive=True)
+                    except Exception as e:
+                        print(f"rm: error removing '{p}': {e}")
+                    continue
+
+                # Not recursive
+                if dir_flag:
+                    # try to remove empty directory
+                    if interactive:
+                        try:
+                            ans = input(f"rm: remove directory '{p}'? [y/N] ")
+                        except EOFError:
+                            ans = ""
+                        if ans.lower() not in ("y", "yes"):
+                            continue
+                    try:
+                        repl.vfs.remove_node(abs_path, recursive=False)
+                    except IsADirectoryError:
+                        print(f"rm: cannot remove '{p}': Directory not empty")
+                    except Exception as e:
+                        print(f"rm: error removing '{p}': {e}")
+                else:
+                    print(f"rm: cannot remove '{p}': Is a directory (use -r to remove recursively)")
+                continue
+
+            # file or link
+            if interactive:
+                try:
+                    ans = input(f"rm: remove '{p}'? [y/N] ")
+                except EOFError:
+                    ans = ""
+                if ans.lower() not in ("y", "yes"):
+                    continue
+            try:
+                repl.vfs.remove_node(abs_path, recursive=False)
+            except Exception as e:
+                print(f"rm: error removing '{p}': {e}")
+
+
+class MkdirCommand(Command):
+    name = "mkdir"
+    description = (
+        "Create directories in the mounted VFS (in-memory).\n"
+        "Options:\n"
+        "  -p              create parent directories as needed\n"
+        "  -v, --verbose   print a message for each created directory\n"
+        "\n"
+        "Usage:\n"
+        "  mkdir dir1 dir2 ...        # create multiple directories\n"
+        "  mkdir -p /a/b/c            # create all missing parents\n"
+        "  mkdir -v new_dir           # print message after creation\n"
+    )
+
+    def execute(self, args: list[str]):
+        """Implements mkdir with -p and -v flags (UNIX-like)."""
+        if not self.vfs:
+            print("No VFS mounted. Cannot create directories.")
+            return 1
+
+        import argparse
+        parser = argparse.ArgumentParser(prog="mkdir", add_help=False)
+        parser.add_argument("-p", action="store_true", dest="parents")
+        parser.add_argument("-v", "--verbose", action="store_true", dest="verbose")
+        parser.add_argument("paths", nargs="*")
+        try:
+            opts = parser.parse_args(args)
+        except SystemExit:
+            # argparse throws SystemExit if parsing fails
+            return 1
+
+        if not opts.paths:
+            print("mkdir: missing operand")
+            return 1
+
+        for raw_path in opts.paths:
+            path = self.vfs.resolve_path(raw_path)
+
+            # Case 1: -p — create all parent directories
+            if opts.parents:
+                created = self.vfs.make_dirs(path)  # assumed to create all parents
+                if created and opts.verbose:
+                    for p in created:
+                        print(f"mkdir: created directory '{p}'")
+                continue
+
+            # Case 2: normal mode — no -p
+            parent = self.vfs.dirname(path)
+            if not self.vfs.exists(parent):
+                print(f"mkdir: cannot create directory '{path}': No such file or directory")
+                continue
+
+            if self.vfs.exists(path):
+                print(f"mkdir: cannot create directory '{path}': File exists")
+                continue
+
+            success = self.vfs.make_dir(path)
+            if success:
+                if opts.verbose:
+                    print(f"mkdir: created directory '{path}'")
+            else:
+                print(f"mkdir: failed to create directory '{path}'")
+
+        return 0
+
+
+class HelpCommand(Command):
+    name = "help"
+    allowed_options: Dict[OptionName, OptionTakesValue] = {}
+    min_args = 0
+    max_args = None
+    description = "Show help for available commands."
+
+    def execute(self, argv: ArgList) -> None:
+        positionals, opts = self.parse(argv)
+        repl = self.repl
+        if repl is None or getattr(repl, "registry", None) is None:
+            print("help: no command registry available")
+            return
+        registry = repl.registry
+
+        if not positionals:
+            print("Available commands:")
+            for name in registry.names():
+                cmd = registry.get(name)
+                desc = getattr(cmd, "description", "")
+                print(f"{name:10} - {desc}")
+        else:
+            for name in positionals:
+                cmd = registry.get(name)
+                if not cmd:
+                    print(f"help: no such command: {name}")
+                else:
+                    print(f"{name} - {getattr(cmd, 'description', 'No description')}")
 
 
 class CommandRegistry:
@@ -754,27 +973,27 @@ class REPL:
         self.vfs_path = vfs_path
         self.vfs: VirtualFileSystem | None = None
         self.vfs_cwd: str | None = None
-        # даём доступ командам к vfs
+        # give commands access to vfs
         for cmd in self.registry.commands.values():
             cmd.repl = self
-        # если vfs путь есть, то монтируем его (ожидаем CSV)
+        # if vfs path is provided, mount it (expect CSV)
         if vfs_path:
             try:
                 vfs = VirtualFileSystem()
                 vfs.load_from_csv(vfs_path)
                 self.vfs = vfs
                 self.vfs_cwd = "/"
-                print(f"VFS успешно смонтирован из {vfs_path}")
-                print("Структура VFS:")
+                print(f"VFS successfully mounted from {vfs_path}")
+                print("VFS structure:")
                 self.vfs.debug_tree(print_fn=print)
             except Exception as e:
-                print(f"не удалось смонтировать vfs из {vfs_path}: {e}")
+                print(f"failed to mount vfs from {vfs_path}: {e}")
                 sys.exit(1)
 
     def to_vfs_abs(self, path: str) -> str:
         """
-        Преобразует входной путь (абсолютный или относительный) в абсолютный путь VFS.
-        Обрабатывает: '.', '..', множественные слэши, обратные слэши.
+        Convert an input path (absolute or relative) to an absolute VFS path.
+        Handles: '.', '..', multiple slashes, backslashes.
         """
         if not self.vfs:
             raise RuntimeError("no vfs mounted")
@@ -843,8 +1062,8 @@ class REPL:
 
     def run_script(self, path: str) -> bool:
         """
-        Выполняет скрипт. Возвращает True при успешном завершении,
-        False если скрипт прерван из-за ошибки (при этом процесс НЕ завершается).
+        Execute a script. Returns True on successful completion,
+        False if the script is aborted due to an error (process does NOT exit).
         """
         if not path:
             print("no script path provided")
@@ -918,7 +1137,11 @@ def make_default_registry() -> CommandRegistry:
     registry.register(WcCommand())
     registry.register(UniqCommand())
     registry.register(PwdCommand())
+    registry.register(RmCommand())
+    registry.register(MkdirCommand())
+    registry.register(HelpCommand())
     return registry
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -930,7 +1153,6 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    # отладочный вывод параметров
     print("Starting emulator with parameters:")
     print(f" argv: {sys.argv}")
     print(f" vfs_path: {args.vfs_path}")

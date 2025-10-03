@@ -1,59 +1,139 @@
-
-ls 
-ls -a 
+# ==== Basic listing tests (ls variants) ====
+# plain listing of root
+ls
+# show hidden entries in root
+ls -a
+# long listing (no human sizes)
 ls -l
+# long listing with human-readable sizes (if implemented)
 ls -lh
+# sort by size (descending)
 ls -S /
+# reverse name order
 ls -r /
+# recursive listing from root
 ls -R /
 
-
-# Проверка несуществующего пути (ожидается сообщение об ошибке, но скрипт продолжит)
+# non-existent path -> should print error but continue
 ls /no/such/path
 
-
-# Работа с директорией /test
+# ==== Working with /test directory ====
 ls /test
 ls -l /test
+# change into /test and show cwd
 cd /test
 pwd
 ls .
+# list parent
 ls ..
 
-
-# Проверки wc
+# ==== wc tests ====
+# file
 wc /test/skip_test.txt
+# file used in uniq ignore-case tests
 wc /test/ignore_case.txt
+# attempt to wc a directory -> should show error
 wc /test
 
-
-# Проверки uniq (много режимов)
+# ==== uniq tests: many modes and combinations ====
+# basic adjacent filtering
 uniq /test/skip_test.txt
+# prefix counts for adjacent groups
 uniq -c /test/skip_test.txt
+# show only duplicated adjacent groups
 uniq -d /test/skip_test.txt
+# show only unique adjacent groups
 uniq -u /test/skip_test.txt
+# global mode: compare all lines ignoring adjacency
 uniq -A /test/skip_test.txt
+# case-insensitive comparison
 uniq -i /test/ignore_case.txt
+# ignore first 1 field
 uniq -f 1 /test/skip_test.txt
+# skip first 1 character
 uniq -s 1 /test/skip_test.txt
+# combine field and char skips
 uniq -f 1 -s 2 /test/skip_test.txt
-uniq -c /test/skip_test.txt
-uniq -d /test/skip_test.txt
-uniq -u /test/skip_test.txt
-uniq -A /test/skip_test.txt
+
+# extra uniq scenarios (files with different formats)
 uniq -i /test/for_i.txt
 uniq -c /test/for_c.txt
 uniq -f 1 /test/for_f.txt
 uniq -s 1 /test/for_s.txt
 uniq -f 1 -s 2 /test/for_f.txt
 
-# Некорректные/пограничные случаи, которые не приведут к аварийному завершению:
-wc /nonexistent.txt
+# attempt to uniq a directory (edge case) -> should print error but continue
 uniq /test
 
+# ==== error edge cases for reading files ====
+wc /nonexistent.txt
+uniq /nonexistent.txt
 
-# Ошибочная опция (поставлена в самом конце — ожидаем, что скрипт завершится с ошибкой здесь):
+# ==== mkdir tests ====
+# create a single directory in root
+mkdir /created_dir
+ls /
+
+# attempt to create nested path without -p (should error if parent doesn't exist)
+mkdir /will/fail/without_p
+
+# now create nested path with -p
+mkdir -p /will/succeed/with/p
+ls /will
+
+# create a directory with spaces in name (must be quoted)
+mkdir "dir with spaces in name"
+# create three directories by passing three separate args (Unix behavior)
+mkdir one two three
+ls
+
+# verbose mkdir (if implemented) — expect output per created dir
+mkdir -p -v /verbose/test/path
+
+# ==== rm tests ====
+# remove a plain file (rm is silent on success)
+rm /to_delete.txt
+# try to remove non-existent file -> error
+rm /no_such_file.txt
+
+# remove empty directory with -d flag
+rm -d /dir_empty
+ls /
+
+# attempt to remove non-empty directory with -d -> should print "Directory not empty"
+rm -d /dir_nonempty
+
+# remove symlink to file and symlink to dir (symlink removal should work)
+rm /symlink_to_readme
+rm /symlink_to_test_subdir
+
+# recursive remove non-empty directory
+rm -r /dir_nonempty
+ls /
+
+# interactive rm examples — these are commented out because run_script is non-interactive.
+# To test interactive behavior run REPL and execute:
+# rm -i /created_dir
+# rm -i -r /will
+
+# ==== ls edge and combined flags tests ====
+# show hidden in /test
+ls -la /test
+# long, human, sorted by size and reverse
+ls -lrth /test || true
+
+# ==== help and misc ====
+help
+help mkdir
+help uniq
+
+# ==== final checks ====
+pwd
+cd /
+ls /
+
+# incorrect option for ls -> should cause parse error or invalid option error
 ls -z
 
-
-# Конец
+# exit at the end of the script
+exit
