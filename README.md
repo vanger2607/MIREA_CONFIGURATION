@@ -160,7 +160,7 @@ git clone https://github.com/vanger2607/MIREA_CONFIGURATION.git
 cd MIREA_CONFIGURATION
 
 # переходим в нужную ветку
-git checkout stage_4_commands
+git checkout stage_5_more_commands
 # Запускаем CLI-терминал
 python cli_terminal.py
 ```
