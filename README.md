@@ -180,8 +180,11 @@ python cli_terminal.py --vfs test_files\\vfs_deep.csv --script test_files\\scrip
 # стартовый скрипт 
 python cli_terminal.py --vfs test_files\\vfs_start.csv --script test_files\\start_script.txt
 
+
+
 # Запуск bat скрипта:
 .\\test_files\\test_run.bat 
 .\\test_files\\run_deep.bat
 
-
+# Запуск тестов
+python -m unittest -v tests.py
